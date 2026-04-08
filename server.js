@@ -3,9 +3,19 @@ import sql from "./db.js";
 import dotenv from "dotenv";
 dotenv.config();
 const app = express();
-
 app.use(express.json());
+/* ==========================
+   SIMPLE API KEY AUTH
+========================== */
+const apiAuth = (req, res, next) => {
+  const apiKey = req.headers["x-api-key"];
 
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  next();
+};
 /* ==========================
    GET ALL USERS API
 ========================== */
@@ -31,7 +41,26 @@ app.get("/api/usersNew", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+/* ==========================
+   GET DAYS API (NO JWT)
+========================== */
+app.get("/api/days", async (req, res) => {
+  try {
+    const days = [
+      { id: 1, name: "Monday" },
+      { id: 2, name: "Tuesday" },
+      { id: 3, name: "Wednesday" },
+      { id: 4, name: "Thursday" },
+      { id: 5, name: "Friday" },
+      { id: 6, name: "Saturday" },
+      { id: 7, name: "Sunday" }
+    ];
 
+    res.json(days);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 /* ==========================
    GET USER BY ID
 ========================== */
