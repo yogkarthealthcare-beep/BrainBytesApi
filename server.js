@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+// ✅ CORS FULL FIX
 const allowedOrigins = [
   'http://localhost:4200',
   'https://mmrconstructions-adeb0.web.app'
@@ -25,15 +25,23 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Postman / mobile apps ke liye
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
+      return callback(null, true);
     } else {
-      callback(new Error('CORS not allowed'));
+      return callback(new Error('Not allowed by CORS'));
     }
-  }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// ✅ VERY IMPORTANT (preflight fix)
+app.options('*', cors());
+app.use(express.json());
+
 // ─── Uploads folder ───────────────────────────────────────────
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
