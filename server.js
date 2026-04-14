@@ -6,16 +6,34 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { uploadToDrive } from "./driveUpload.js";
 import { fileURLToPath } from "url";
+import cors from 'cors';
 
 dotenv.config();
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+const allowedOrigins = [
+  'http://localhost:4200',
+  'https://mmrconstructions-adeb0.web.app'
+];
 
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed'));
+    }
+  }
+}));
 // ─── Uploads folder ───────────────────────────────────────────
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -1860,6 +1878,13 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, message: error.message || "Internal server error" });
 });
 
+// ✅ uske baad middleware
+app.use(cors({
+  origin: 'http://localhost:4200'
+}));
+
 app.listen(process.env.PORT, () => {
   console.log(`[MMR API] Server running on port ${process.env.PORT}`);
 });
+
+
