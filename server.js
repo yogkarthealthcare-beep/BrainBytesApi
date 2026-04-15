@@ -238,7 +238,100 @@ app.post("/api/auth/send-otp", async (req, res) => {
 });
 
 // Register (multi-step — submit all at once after form)
+//const bcrypt = require("bcrypt");
+
+// Register API
 app.post("/api/auth/register", upload.fields([
+  { name: "pan_card", maxCount: 1 },
+  { name: "aadhar_card", maxCount: 1 },
+  { name: "profile_photo", maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const {
+      user_type, full_name, date_of_birth, gender,
+      father_name, mother_name, spouse_name,
+      mobile_no, alternate_mobile, email,
+      password, confirm_password,   // 👈 add this
+      pan_number, aadhar_number, otp_code,
+      perm_address_line1, perm_city, perm_state, perm_pin,
+      local_address_line1, local_city, local_pin,
+      account_holder_name, account_number, ifsc_code, branch_name, bank_name,
+      nominee_name, nominee_dob, nominee_gender, nominee_pan,
+      nominee_aadhar, nominee_relationship,
+      sponsor_invite_code,
+      terms_accepted,
+    } = req.body;
+
+    // ── Validate required fields ──
+    if (!user_type || !full_name || !mobile_no || !pan_number || !aadhar_number || !password || !confirm_password)
+      return err(res, "Required fields missing", 400);
+
+    // ── Password Match Check 🔥 ──
+    if (password !== confirm_password) {
+      return err(res, "Password and Confirm Password do not match", 400);
+    }
+
+    if (!terms_accepted || terms_accepted !== "true")
+      return err(res, "Terms & Conditions must be accepted", 400);
+
+    // ── Hash Password 🔐 ──
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ── Verify OTP ──
+    const [otpRow] = await sql`
+      SELECT * FROM otp_log
+      WHERE mobile = ${mobile_no} AND otp_code = ${otp_code}
+        AND purpose = 'Registration' AND is_used = FALSE
+        AND expires_at > NOW()
+      ORDER BY otp_id DESC LIMIT 1`;
+
+    if (!otpRow) return err(res, "Invalid or expired OTP", 400);
+
+    // ── Duplicate checks ──
+    const [dupMobile] = await sql`SELECT user_id FROM users WHERE mobile_no = ${mobile_no}`;
+    if (dupMobile) return err(res, "Mobile number already registered", 409);
+
+    const [dupPAN] = await sql`SELECT user_id FROM users WHERE pan_number = ${pan_number}`;
+    if (dupPAN) return err(res, "PAN already registered", 409);
+
+    const [dupAadhar] = await sql`SELECT user_id FROM users WHERE aadhar_number = ${aadhar_number}`;
+    if (dupAadhar) return err(res, "Aadhar already registered", 409);
+
+    // ── Insert User (password added) ──
+    const [newUser] = await sql`
+      INSERT INTO users (
+        user_type, full_name, date_of_birth, gender,
+        father_name, mother_name, spouse_name,
+        mobile_no, alternate_mobile, email,
+        password_hash,   -- 👈 add column in DB
+        pan_number, aadhar_number, is_otp_verified,
+        sponsor_user_id, account_status
+      ) VALUES (
+        ${user_type}, ${full_name}, ${date_of_birth || null}, ${gender || null},
+        ${father_name || null}, ${mother_name || null}, ${spouse_name || null},
+        ${mobile_no}, ${alternate_mobile || null}, ${email || null},
+        ${hashedPassword},   -- 👈 store hash
+        ${pan_number.toUpperCase()}, ${aadhar_number}, TRUE,
+        ${sponsorUserId}, 'Pending'
+      ) RETURNING user_id, full_name, mobile_no, user_type`;
+
+    const userId = newUser.user_id;
+
+    // बाकी code same रहेगा...
+
+    // ── Final Response 🔥 ──
+    return ok(res, {
+      user_id: userId,
+      username: full_name   // 👈 username return
+    },
+    "Registration successful. Pending admin approval.", 201);
+
+  } catch (e) {
+    return err(res, e.message);
+  }
+});
+
+app.post("/api/auth/register123", upload.fields([
   { name: "pan_card",      maxCount: 1 },
   { name: "aadhar_card",   maxCount: 1 },
   { name: "profile_photo", maxCount: 1 },
@@ -247,7 +340,7 @@ app.post("/api/auth/register", upload.fields([
     const {
       user_type, full_name, date_of_birth, gender,
       father_name, mother_name, spouse_name,
-      mobile_no, alternate_mobile, email,
+      mobile_no, alternate_mobile, email,password,
       pan_number, aadhar_number, otp_code,
       // Address
       perm_address_line1, perm_city, perm_state, perm_pin,
