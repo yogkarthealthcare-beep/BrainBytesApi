@@ -39,7 +39,8 @@ app.use(cors({
 }));
 
 // ✅ VERY IMPORTANT (preflight fix)
-app.options('*', cors());
+app.use(cors());
+app.options(/.*/, cors());
 app.use(express.json());
 
 // ─── Uploads folder ───────────────────────────────────────────
